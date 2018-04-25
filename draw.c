@@ -20,11 +20,49 @@
   Color should be set differently for each polygon.
   ====================*/
 void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
-  int q = i + 1;
-  for(; q < i + 8; q+=3){
-    
-  }
+  double xb, xm, xt, yb, ym ,yt, zbs, zm, zt, cxp, cx;
+  int y, b, m, t, x;
+  double zs[3];
 
+  zs[0] = points -> m[i][3];
+  zs[1] = points -> m[i+1][3];
+  zs[2] = points -> m[i+2][3];
+
+  t = next_highest ( zs, zs[0] + zs[1] + zs[2], 3);
+  m = next_highest ( zs, zs[t], 3);
+  b = next_highest ( zs, zs[b], 3);
+  
+  xb = points->m[i + b][0];
+  yb = points->m[i + b][1];
+  zbs = points[i + b][2];
+  xm = points[i + m][0];
+  ym = points[i + m][1];
+  zm = points[i + m][2];
+  xt = points[i + t][0];
+  yt = points[i + t][1];
+  zt = points[i + t][2];
+
+  cx = (xm - xb) / (ym - yb);
+  cxp = (xt - xb) / (yt - yb);
+  
+  for( y = yb; y < yt; y++){
+    if(y >= ym) cx = (xt - xm) / (yt - ym);
+    xb += cx;
+    x += cxp;
+    draw_line(x, y, 0, xb, y, 0);
+  }
+}
+
+int next_highest ( double arr[], int prev, int l){
+  int curr, i, index;
+  i = 0;
+  curr = 0;
+  for(; i < l; i++){
+    if(arr[i] < prev && arr[i] > curr){
+      curr = arr[i];
+      index = i;
+    }
+  }return index;
 }
 
 /*======== void add_polygon() ==========
@@ -99,7 +137,6 @@ void draw_polygons(struct matrix *polygons, screen s, zbuffer zb, color c ) {
                  polygons->m[2][point+2],
                  s, zb, c);
       scanline_convert(polygons, point, s, zb);
-      c = c + .5;
     }
   }
 }

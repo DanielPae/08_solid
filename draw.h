@@ -5,6 +5,7 @@
 #include "ml6.h"
 
 void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb );
+int next_highest ( double arr[], int, int);
 
 //polygon organization
 void add_polygons( struct matrix * points,
