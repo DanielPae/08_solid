@@ -4,9 +4,13 @@
 #include "matrix.h"
 #include "ml6.h"
 
-void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb );
-int next_highest ( double arr[], int, int);
+struct sortable {
+    double value;
+    int index;
+  };
 
+void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb );
+int next_highest( struct sortable arr[3], int l);
 //polygon organization
 void add_polygons( struct matrix * points,
                    double x0, double y0, double z0,

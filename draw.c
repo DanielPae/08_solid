@@ -20,50 +20,104 @@
   Color should be set differently for each polygon.
   ====================*/
 void scanline_convert( struct matrix *points, int i, screen s, zbuffer zb ) {
-  double xb, xm, xt, yb, ym ,yt, zbs, zm, zt, cxp, cx;
-  int y, b, m, t, x;
-  double zs[3];
-
-  zs[0] = points -> m[i][3];
-  zs[1] = points -> m[i+1][3];
-  zs[2] = points -> m[i+2][3];
-
-  t = next_highest ( zs, zs[0] + zs[1] + zs[2], 3);
-  m = next_highest ( zs, zs[t], 3);
-  b = next_highest ( zs, zs[b], 3);
+  double xb, xm, xt, yb, ym ,yt, zbs, zm, zt, cxp, cx, czp, cz, z, z1, x, x1;
+  int y, m, t, b, ytm;
   
-  xb = points->m[i + b][0];
-  yb = points->m[i + b][1];
-  zbs = points[i + b][2];
-  xm = points[i + m][0];
-  ym = points[i + m][1];
-  zm = points[i + m][2];
-  xt = points[i + t][0];
-  yt = points[i + t][1];
-  zt = points[i + t][2];
+  struct sortable ys[3];
 
-  cx = (xm - xb) / (ym - yb);
+  struct sortable one;
+  one.value = points -> m[1][i];
+  one.index = 0;
+  struct sortable two;
+  two.value = points -> m[1][i+1];
+  two.index = 1;
+  struct sortable three;
+  three.value = points -> m[1][i+2];
+  three.index = 2;
+
+  ys[0] = one;
+  ys[1] = two;
+  ys[2] = three;
+
+  t = next_highest( ys, 3);
+  m = next_highest( ys, 3);
+  b = next_highest( ys, 3);
+  //printf("%lf %lf %lf %d %d %d\n", ys[0].value, ys[1].value, ys[2].value, b, m ,t);
+  xb = points->m[0][i + b];
+  x = xb;
+  x1 = xb;
+  yb = points->m[1][i + b];
+  zbs = points->m[2][i + b];
+  z = zbs;
+  z1 = zbs;
+  xm = points->m[0][i + m];
+  ym = points->m[1][i + m];
+  zm = points->m[2][i + m];
+  xt = points->m[0][i + t];
+  yt = points->m[1][i + t];
+  zt = points->m[2][i + t];
+
+  color c;
+  c.red = (int)(xb * ym) % 255;
+  c.green = (int)(xm * zt) % 255;
+  c.blue = (int)(xt * xm) % 255;
+  
+  if(abs(yb - ym) < .0001){
+    cx = (xt - xm) / (yt - ym);
+    cz = abs((zt - zm) / (yt - ym));
+    if(zt - zm < 0) cz = cz * -1;
+    y = ym;
+    x1 = xm;
+    ytm = 0;
+  }else if (abs(yt - ym) > .0001){
+    cx = (xm - xb) / (ym - yb);
+    cz = abs((zm - zbs) / (ym - yb));
+    if(zm - zbs < 0) cz = cz * -1;
+    y = yb;
+    ytm = 1;
+  }
+  else {
+    cx = (xm - xb) / (ym - yb);
+    cz = abs((zm - zbs) / (ym - yb));
+    if(zm - zbs < 0) cz = cz * -1;
+    y = yb;
+    ytm = 0;
+  }
+  
   cxp = (xt - xb) / (yt - yb);
-  
-  for( y = yb; y < yt; y++){
-    if(y >= ym) cx = (xt - xm) / (yt - ym);
-    xb += cx;
+  czp = abs((zt - zbs) / (yt - yb));
+  if(zt - zbs < 0) czp = czp * -1;
+
+  for(; y <= yt; y++){
+    //printf("%d %d %lf %d %d %lf\n", (int)x, (int)y, z, (int)x1, (int)y, z1);
+    draw_line((int)x, (int)y, z, (int)x1, (int)y, z1, s, zb, c);
+    if(ytm && y >= ym){
+      cx = (xt - xm) / (yt - ym);
+      cz = abs((zt - zm) / (yt - ym));
+      if(zt - zm < 0) cz = cz * -1;
+    }
+    x1 += cx;
     x += cxp;
-    draw_line(x, y, 0, xb, y, 0);
+    z1 += cz;
+    z += czp;
   }
 }
 
-int next_highest ( double arr[], int prev, int l){
+int next_highest ( struct sortable arr[3], int l){
   int curr, i, index;
   i = 0;
-  curr = 0;
+  curr = -1000000;
   for(; i < l; i++){
-    if(arr[i] < prev && arr[i] > curr){
-      curr = arr[i];
+    if(arr[i].value  >= curr){
+      curr = arr[i].value;
       index = i;
     }
-  }return index;
+  }//printf("index : %d\n", index);
+  arr[index].value = -10000000;
+  return arr[index].index;
 }
+
+
 
 /*======== void add_polygon() ==========
   Inputs:   struct matrix *surfaces
@@ -110,32 +164,34 @@ void draw_polygons(struct matrix *polygons, screen s, zbuffer zb, color c ) {
   double *normal;
 
   for (point=0; point < polygons->lastcol-2; point+=3) {
-
+  
     normal = calculate_normal(polygons, point);
 
     if ( normal[2] > 0 ) {
-
-      draw_line( polygons->m[0][point],
-                 polygons->m[1][point],
-                 polygons->m[2][point],
-                 polygons->m[0][point+1],
-                 polygons->m[1][point+1],
-                 polygons->m[2][point+1],
-                 s, zb, c);
-      draw_line( polygons->m[0][point+2],
-                 polygons->m[1][point+2],
-                 polygons->m[2][point+2],
-                 polygons->m[0][point+1],
-                 polygons->m[1][point+1],
-                 polygons->m[2][point+1],
-                 s, zb, c);
-      draw_line( polygons->m[0][point],
-                 polygons->m[1][point],
-                 polygons->m[2][point],
-                 polygons->m[0][point+2],
-                 polygons->m[1][point+2],
-                 polygons->m[2][point+2],
-                 s, zb, c);
+      
+      
+	draw_line( polygons->m[0][point],
+	polygons->m[1][point],
+	polygons->m[2][point],
+	polygons->m[0][point+1],
+	polygons->m[1][point+1],
+	polygons->m[2][point+1],
+	s, zb, c);
+	draw_line( polygons->m[0][point+2],
+	polygons->m[1][point+2],
+	polygons->m[2][point+2],
+	polygons->m[0][point+1],
+	polygons->m[1][point+1],
+	polygons->m[2][point+1],
+	s, zb, c);
+	draw_line( polygons->m[0][point],
+	polygons->m[1][point],
+	polygons->m[2][point],
+	polygons->m[0][point+2],
+	polygons->m[1][point+2],
+	polygons->m[2][point+2],
+	s, zb, c);
+      
       scanline_convert(polygons, point, s, zb);
     }
   }
@@ -555,13 +611,14 @@ void draw_line(int x0, int y0, double z0,
                int x1, int y1, double z1,
                screen s, zbuffer zb, color c) {
 
-
-  int x, y, d, A, B;
-  int dy_east, dy_northeast, dx_east, dx_northeast, d_east, d_northeast;
+  //printf("%d %d %lf %d %d %lf\n", x0, y0, z0, x1, y1, z1);
+  int x, y, z, d, A, B, C;
+  int dy_east, dy_northeast, dx_east, dx_northeast, d_east, d_northeast, zc;
   int loop_start, loop_end;
 
   //swap points if going right -> left
   int xt, yt;
+  //printf("%d %d %d %d %lf %lf\n", x0, x1, y0, y1, z0, z1);
   if (x0 > x1) {
     xt = x0;
     yt = y0;
@@ -574,8 +631,11 @@ void draw_line(int x0, int y0, double z0,
 
   x = x0;
   y = y0;
+  z = z0;
   A = 2 * (y1 - y0);
   B = -2 * (x1 - x0);
+  C = 2 * (z1 - z0);
+  //printf("%d %d %d %d %lf %lf\n", x0, x1, y0, y1, z0, z1);
   int wide = 0;
   int tall = 0;
   //octants 1 and 8
@@ -618,10 +678,14 @@ void draw_line(int x0, int y0, double z0,
       loop_end = y;
     }
   }
+  //printf("%d %d\n", A, B);
+  zc = 0;
+  if (tall && B !=0) zc = C / (B * -1);
+  else if (A != 0) zc = C / A;
 
   while ( loop_start < loop_end ) {
-
-    plot( s, zb, c, x, y, 0);
+    plot( s, zb, c, x, y, z);
+    z += zc;
     if ( (wide && ((A > 0 && d > 0) ||
                    (A < 0 && d < 0)))
          ||
@@ -638,5 +702,5 @@ void draw_line(int x0, int y0, double z0,
     }
     loop_start++;
   } //end drawing loop
-  plot( s, zb, c, x1, y1, 0 );
+  plot( s, zb, c, x1, y1, z );
 } //end draw_line
